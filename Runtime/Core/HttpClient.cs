@@ -8,10 +8,13 @@ namespace susaplay.SDK
     {
         private SDKConfig _config;
         private TokenManager _tokenManager;
-        public HttpClient(SDKConfig config, TokenManager tokenManager)
+        private AppCheckManager _appCheckManager;
+
+        public HttpClient(SDKConfig config, TokenManager tokenManager, AppCheckManager appCheckManager = null)
         {
             _config = config;
             _tokenManager = tokenManager;
+            _appCheckManager = appCheckManager;
         }
 
         public async Task<HttpResponse> Post(string endpoint, string body)
@@ -24,14 +27,15 @@ namespace susaplay.SDK
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
             request.SetRequestHeader("Authorization", "Bearer " + token);
+            await AttachAppCheckHeader(request);
             await request.SendWebRequest();
             if (request.result == UnityWebRequest.Result.Success)
             {
-                return new HttpResponse { Success = true, Data = request.downloadHandler.text };
+                return new HttpResponse { Success = true, Data = request.downloadHandler.text, StatusCode = request.responseCode };
             }
             else
             {
-                return HttpResponse.Fail(request.error);
+                return HttpResponse.Fail(request.error, request.responseCode);
             }
         }
 
@@ -41,15 +45,24 @@ namespace susaplay.SDK
             var url = _config.ApiBaseUrl + endpoint;
             var request = UnityWebRequest.Get(url);
             request.SetRequestHeader("Authorization", "Bearer " + token);
+            await AttachAppCheckHeader(request);
             await request.SendWebRequest();
             if (request.result == UnityWebRequest.Result.Success)
             {
-                return new HttpResponse { Success = true, Data = request.downloadHandler.text };
+                return new HttpResponse { Success = true, Data = request.downloadHandler.text, StatusCode = request.responseCode };
             }
             else
             {
-                return HttpResponse.Fail(request.error);
+                return HttpResponse.Fail(request.error, request.responseCode);
             }
+        }
+
+        private async Task AttachAppCheckHeader(UnityWebRequest request)
+        {
+            if (_appCheckManager == null) return;
+            var appCheckToken = await _appCheckManager.GetTokenAsync();
+            if (!string.IsNullOrEmpty(appCheckToken))
+                request.SetRequestHeader("X-Firebase-AppCheck", appCheckToken);
         }
     }
 }

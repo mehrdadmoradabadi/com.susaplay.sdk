@@ -8,6 +8,7 @@ namespace susaplay.SDK
     {
         private static SDKConfig _config;
         private static TokenManager _tokenManager;
+        private static AppCheckManager _appCheckManager;
         private static HttpClient _httpClient;
         private static TaskCompletionSource<string> _initTcs;
         private static AuthModule _auth;
@@ -23,7 +24,7 @@ namespace susaplay.SDK
         public static PurchasesModule Purchases => _purchases;
         private static ApiModule _api;
         public static ApiModule Api => _api;
-        private const string SdkVersion = "1.0.0";
+        private const string SdkVersion = "1.2.3";
         private const int InitTimeoutMs = 15000;
         private static bool _isInitialized;
         private static bool _didSendGameLoaded;
@@ -44,7 +45,9 @@ namespace susaplay.SDK
             WebGLBridge.Initialize();
             _tokenManager = new TokenManager();
             _tokenManager.Initialize();
-            _httpClient = new HttpClient(_config, _tokenManager);
+            _appCheckManager = new AppCheckManager();
+            _appCheckManager.Initialize();
+            _httpClient = new HttpClient(_config, _tokenManager, _appCheckManager);
             _initTcs = new TaskCompletionSource<string>();
             WebGLBridge.OnMessageReceived += HandleInitMessage;
             WebGLBridge.SendMessage(new BridgeMessage

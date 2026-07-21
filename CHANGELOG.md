@@ -2,6 +2,27 @@
 
 All notable changes to `com.susaplay.sdk` should be documented in this file.
 
+## [1.2.3] - 2026-07-21
+
+Added:
+
+- `AppCheckManager` — automatically requests a Firebase App Check token from the shell before every HTTP call via new bridge messages `SDK_GET_APP_CHECK_TOKEN` / `SDK_APP_CHECK_TOKEN_RESPONSE`. Token cached for 50 minutes. No game-side configuration required.
+- `HttpClient` now attaches `X-Firebase-AppCheck` header when an App Check token is available
+
+Changed:
+
+- `HttpClient` constructor accepts an optional `AppCheckManager` parameter (backward compatible — defaults to null)
+- `SusaPlaySDK` initializes `AppCheckManager` alongside `TokenManager` on startup
+- SDK version bumped to `1.2.3`
+
+Notes:
+
+- If the shell does not respond to `SDK_GET_APP_CHECK_TOKEN` within 5 seconds (older shells), the SDK proceeds without the header — backend currently allows this
+- When `APP_CHECK_ENFORCEMENT=true` is set on backend Cloud Functions, requests without a valid App Check token will return 401
+- Game shell must handle `SDK_GET_APP_CHECK_TOKEN` and return `SDK_APP_CHECK_TOKEN_RESPONSE` — updated game-shell includes this handler with lazy Firebase App Check initialization
+- Cloud save `data` field is unchanged in the API response regardless of backend storage changes (GCS migration is transparent)
+- Analytics events now stream to BigQuery directly on the backend — no SDK change required
+
 ## [Unreleased]
 
 Added:

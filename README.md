@@ -2,7 +2,7 @@
 
 Unity SDK package for integrating games with the SusaPlay platform.
 
-Latest stable release tag: `v1.2.2`
+Latest stable release tag: `v1.2.3`
 
 This package is intended for games that run inside the SusaPlay shell on WebGL today. The current implementation is real and usable, but still evolving. We are intentionally exposing all implemented methods so game teams can integrate early and help us tune the SDK against real game behavior.
 
@@ -56,6 +56,7 @@ Notes:
 - The SDK tracks slot versions locally and sends them with save requests
 - Empty cloud saves are handled as version `0`
 - Conflict handling is still being tuned across real games
+- Save data is stored in Cloud Storage server-side (not Firestore). The API response is unchanged — `data` is always returned as a string in the load response regardless of backend storage
 
 ### AnalyticsModule
 
@@ -72,6 +73,7 @@ Notes:
 - The automatic flush interval and lifecycle flushes can be changed in `SusaPlay/Setup`
 - Accepted analytics events can be forwarded to webhooks subscribed to `SDK_ANALYTICS_EVENT`
 - Automatic event schema validation is still minimal in this version
+- Analytics events are now streamed directly to BigQuery on the backend — no Firestore intermediate storage. No SDK change required
 
 ### WebhooksModule
 
@@ -170,6 +172,19 @@ Current behavior notes:
 - use `GetTopupPacks()` to build SusaPlay wallet top-up UI
 - use `SpendPlatformWallet(itemId)` only for items that are wallet-eligible
 
+### App Check (v1.2.3+)
+
+The SDK automatically requests a Firebase App Check token from the shell before every API call. No game-side configuration is required.
+
+How it works:
+
+- SDK sends `SDK_GET_APP_CHECK_TOKEN` to the shell bridge
+- Shell calls Firebase App Check JS SDK and returns the token via `SDK_APP_CHECK_TOKEN_RESPONSE`
+- SDK attaches the token as `X-Firebase-AppCheck` header on all backend requests
+- Token is cached for 50 minutes; refreshed automatically
+
+If the shell does not respond within 5 seconds (older shells), the SDK proceeds without the header — the backend currently allows this. When `APP_CHECK_ENFORCEMENT=true` is set on the backend functions, requests without a valid App Check token will be rejected with 401.
+
 ### Editor Tooling
 
 Available menu:
@@ -200,7 +215,7 @@ Use Unity Package Manager with a Git URL pinned to a release tag:
 ```json
 {
   "dependencies": {
-    "com.susaplay.sdk": "https://github.com/Susa-Games/com.susaplay.sdk.git#v1.2.2"
+    "com.susaplay.sdk": "https://github.com/Susa-Games/com.susaplay.sdk.git#v1.2.3"
   }
 }
 ```
@@ -208,11 +223,11 @@ Use Unity Package Manager with a Git URL pinned to a release tag:
 You can also use:
 
 - Unity -> Window -> Package Manager -> Add package from git URL
-- `https://github.com/Susa-Games/com.susaplay.sdk.git#v1.2.2`
+- `https://github.com/Susa-Games/com.susaplay.sdk.git#v1.2.3`
 
 Versioning notes:
 
-- Use `#v1.2.2` or another tag when you want a reproducible release install
+- Use `#v1.2.3` or another tag when you want a reproducible release install
 - Use `#main` only if you intentionally want the moving head of development
 - Use `#latest` for the newest published SDK branch maintained by SusaPlay
 - Use `#release` for the current stable SDK branch maintained by SusaPlay
@@ -388,7 +403,7 @@ We recommend pinned Git tags:
 - `v1.0.0`
 - `v1.1.0`
 - `v1.1.1`
-- `v1.2.2`
+- `v1.2.3`
 
 Guidelines:
 

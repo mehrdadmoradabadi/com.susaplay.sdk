@@ -8,7 +8,12 @@ namespace susaplay.SDK
     {
         private HttpClient _httpClient;
         private Dictionary<string, int> _slotVersions = new Dictionary<string, int>();
+        private Dictionary<string, float> _lastSaveTime = new Dictionary<string, float>();
         private string _gameId;
+
+        private const int MaxRetries = 3;
+        private const float MinSaveIntervalSeconds = 2f;
+
         public CloudSaveModule(HttpClient httpClient, string gameId)
         {
             _httpClient = httpClient;
@@ -17,28 +22,58 @@ namespace susaplay.SDK
 
         public async Task<SaveResult> Save(string slot, string data)
         {
-            var version = _slotVersions.ContainsKey(slot) ? _slotVersions[slot] : 0;
-            var body = "{\"gameId\":\"" + _gameId + "\",\"slot\":\"" + slot + "\",\"data\":" + data + ",\"version\":" + version + "}";
-
-            var response = await _httpClient.Post("/save/write", body);
-            if (!response.Success)
+            float now = Time.realtimeSinceStartup;
+            if (_lastSaveTime.TryGetValue(slot, out float lastTime))
             {
+                float elapsed = now - lastTime;
+                if (elapsed < MinSaveIntervalSeconds)
+                {
+                    int delayMs = (int)((MinSaveIntervalSeconds - elapsed) * 1000);
+                    await Task.Delay(delayMs);
+                }
+            }
+
+            for (int attempt = 0; attempt < MaxRetries; attempt++)
+            {
+                var version = _slotVersions.ContainsKey(slot) ? _slotVersions[slot] : 0;
+                var body = "{\"gameId\":\"" + _gameId + "\",\"slot\":\"" + slot + "\",\"data\":" + data + ",\"version\":" + version + "}";
+
+                var response = await _httpClient.Post("/save/write", body);
+
+                if (response.Success)
+                {
+                    var envelope = JsonUtility.FromJson<SaveWriteEnvelope>(response.Data);
+                    if (envelope == null || !envelope.success || envelope.data == null)
+                    {
+                        return SaveResult.Fail("Malformed save response");
+                    }
+
+                    var saveResult = new SaveResult
+                    {
+                        Success = true,
+                        Version = envelope.data.version,
+                        Error = null
+                    };
+                    _slotVersions[slot] = saveResult.Version;
+                    _lastSaveTime[slot] = Time.realtimeSinceStartup;
+                    return saveResult;
+                }
+
+                if (response.StatusCode == 409 && attempt < MaxRetries - 1)
+                {
+                    Logger.Warn("Save conflict on slot " + slot + " — re-fetching and retrying (attempt " + (attempt + 1) + ")");
+                    var refreshed = await Load(slot);
+                    if (!refreshed.Success)
+                    {
+                        return SaveResult.Fail("Failed to refresh after conflict: " + refreshed.Error);
+                    }
+                    continue;
+                }
+
                 return SaveResult.Fail(response.Error);
             }
-            var envelope = JsonUtility.FromJson<SaveWriteEnvelope>(response.Data);
-            if (envelope == null || !envelope.success || envelope.data == null)
-            {
-                return SaveResult.Fail("Malformed save response");
-            }
 
-            var saveResult = new SaveResult
-            {
-                Success = true,
-                Version = envelope.data.version,
-                Error = null
-            };
-            _slotVersions[slot] = saveResult.Version;
-            return saveResult;
+            return SaveResult.Fail("Save failed after " + MaxRetries + " retries");
         }
 
         public async Task<LoadResult> Load(string slot)
