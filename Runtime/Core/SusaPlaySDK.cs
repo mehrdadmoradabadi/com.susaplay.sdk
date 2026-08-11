@@ -24,7 +24,9 @@ namespace susaplay.SDK
         public static PurchasesModule Purchases => _purchases;
         private static ApiModule _api;
         public static ApiModule Api => _api;
-        private const string SdkVersion = "1.2.3";
+        private static LiveOpsModule _liveOps;
+        public static LiveOpsModule LiveOps => _liveOps;
+        private const string SdkVersion = "1.3.0";
         private const int InitTimeoutMs = 15000;
         private static bool _isInitialized;
         private static bool _didSendGameLoaded;
@@ -139,10 +141,16 @@ namespace susaplay.SDK
             _auth.Initialize(playerData);
             _cloudSave = new CloudSaveModule(_httpClient, playerData.gameId);
             _analytics = new AnalyticsModule(_httpClient, playerData.gameId, playerData.sessionId);
+            // Emit session_start automatically. Nothing else in the SDK queues an event, so
+            // without this a game that never calls LogEvent produces no analytics at all and
+            // DAU/MAU/retention stay empty for it. Queued here, shipped by the flusher below
+            // when FlushAnalyticsOnInitialize is on (the default).
+            _analytics.LogEvent("session_start");
             _webhooks = new WebhooksModule(_httpClient, playerData.gameId, playerData.sessionId, playerData.PlayerIdOrUid());
             _purchases = new PurchasesModule(_httpClient, playerData.gameId);
             _purchases.Initialize();
             _api = new ApiModule();
+            _liveOps = new LiveOpsModule(_config.LiveOpsContentBaseUrl, playerData.gameId);
             if (_config.AutomaticAnalyticsFlushEnabled)
             {
                 var flusherGO = new GameObject("SusaPlayAnalyticsFlusher");

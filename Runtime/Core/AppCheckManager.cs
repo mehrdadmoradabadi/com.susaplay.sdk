@@ -11,13 +11,26 @@ namespace susaplay.SDK
     /// </summary>
     public class AppCheckManager
     {
+        // Must exceed the shell's own 5s timeout on SDK_GET_APP_CHECK_TOKEN, otherwise a slow
+        // first load races: the shell replies null at ~5s while we've already given up and
+        // written App Check off for the session.
+        private const int RequestTimeoutMs = 8000;
+
+        // One timeout can be transient (cold start, main-thread jank). Only stop asking after
+        // the shell has stayed silent twice — that's an old shell with no handler at all.
+        private const int MaxTimeoutsBeforeUnsupported = 2;
+
         private Dictionary<string, TaskCompletionSource<string>> _pendingRequests = new Dictionary<string, TaskCompletionSource<string>>();
         private string _cachedToken;
         private DateTime _tokenExpiry;
         private bool _supported = true;
+        private int _timeoutCount;
 
         public void Initialize()
         {
+            // Unsubscribe first so a retried Initialize() can't double-subscribe, which would
+            // make HandleMessage call SetResult twice on the same TaskCompletionSource.
+            WebGLBridge.OnMessageReceived -= HandleMessage;
             WebGLBridge.OnMessageReceived += HandleMessage;
         }
 
@@ -43,17 +56,26 @@ namespace susaplay.SDK
                 payload = "{\"requestId\":\"" + requestId + "\"}"
             });
 
-            // Time out after 5s — older shells won't respond, mark as unsupported
-            var completed = await Task.WhenAny(tcs.Task, Task.Delay(5000));
+            var completed = await Task.WhenAny(tcs.Task, Task.Delay(RequestTimeoutMs));
             _pendingRequests.Remove(requestId);
 
             if (completed != tcs.Task)
             {
-                Logger.Warn("App Check token request timed out — shell may not support App Check. Proceeding without.");
-                _supported = false;
+                _timeoutCount++;
+                if (_timeoutCount >= MaxTimeoutsBeforeUnsupported)
+                {
+                    Logger.Warn("App Check token request timed out again — shell does not support App Check. Proceeding without for this session.");
+                    _supported = false;
+                }
+                else
+                {
+                    Logger.Warn("App Check token request timed out — will retry on the next request.");
+                }
                 return null;
             }
 
+            // A reply (even a null token) proves the shell handles the message.
+            _timeoutCount = 0;
             return await tcs.Task;
         }
 

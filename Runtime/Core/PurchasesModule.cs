@@ -20,6 +20,9 @@ namespace susaplay.SDK
 
         public void Initialize()
         {
+            // Unsubscribe first — a retried SDK init constructs a new module, and the old one
+            // would otherwise stay subscribed to the bridge for the life of the page.
+            WebGLBridge.OnMessageReceived -= HandleMessage;
             WebGLBridge.OnMessageReceived += HandleMessage;
         }
 

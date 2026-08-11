@@ -1,0 +1,10 @@
+{
+  "name": "susaplay.SDK.Tests",
+  "references": [
+    "susaplay.SDK.Runtime"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "autoReferenced": false
+}

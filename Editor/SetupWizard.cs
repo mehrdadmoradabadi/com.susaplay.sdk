@@ -8,6 +8,7 @@ namespace susaplay.SDK.Editor
     public class SetupWizard : EditorWindow
     {
         private string _gameKey;
+        private string _liveOpsContentBaseUrl;
         private SDKConfig _config;
         private bool _automaticAnalyticsFlushEnabled = true;
         private float _analyticsFlushIntervalSeconds = 300f;
@@ -26,6 +27,7 @@ namespace susaplay.SDK.Editor
             if (_config != null)
             {
                 _gameKey = _config.GameKey;
+                _liveOpsContentBaseUrl = _config.LiveOpsContentBaseUrl;
                 _automaticAnalyticsFlushEnabled = _config.AutomaticAnalyticsFlushEnabled;
                 _analyticsFlushIntervalSeconds = _config.AnalyticsFlushIntervalSeconds;
                 _flushAnalyticsOnInitialize = _config.FlushAnalyticsOnInitialize;
@@ -38,6 +40,8 @@ namespace susaplay.SDK.Editor
         {
             GUILayout.Label("susaplay SDK Setup", EditorStyles.boldLabel);
             _gameKey = EditorGUILayout.TextField("Game Key", _gameKey);
+            _liveOpsContentBaseUrl = EditorGUILayout.TextField(
+                "LiveOps Content Base URL", _liveOpsContentBaseUrl);
             EditorGUILayout.Space();
             GUILayout.Label("Analytics Flush", EditorStyles.boldLabel);
             _automaticAnalyticsFlushEnabled = EditorGUILayout.Toggle("Automatic Flush", _automaticAnalyticsFlushEnabled);
@@ -59,6 +63,7 @@ namespace susaplay.SDK.Editor
                     AssetDatabase.CreateAsset(_config, "Assets/Resources/PlatformConfig.asset");
                 }
                 _config.SetGameKey(_gameKey);
+                _config.SetLiveOpsContentBaseUrl(_liveOpsContentBaseUrl);
                 _config.SetAutomaticAnalyticsFlushEnabled(_automaticAnalyticsFlushEnabled);
                 _config.SetAnalyticsFlushIntervalSeconds(_analyticsFlushIntervalSeconds);
                 _config.SetAnalyticsLifecycleFlushes(

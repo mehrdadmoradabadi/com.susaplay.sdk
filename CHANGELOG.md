@@ -2,6 +2,47 @@
 
 All notable changes to `com.susaplay.sdk` should be documented in this file.
 
+## [1.3.0] - 2026-08-11
+
+Added:
+
+- `session_start` is now emitted automatically during SDK init. Previously nothing in the SDK
+  ever queued an event, so a game that never called `LogEvent` produced no analytics at all and
+  its DAU / MAU / retention stayed empty.
+
+Fixed:
+
+- `TokenManager.GetTokenAsync` had no timeout. If the shell never sent `SDK_TOKEN_RESPONSE` the
+  await never returned, and since every HTTP call goes through it the SDK hung silently with no
+  error and no retry. It now times out after 10s and returns null, so the request fails with an
+  observable 401 instead.
+- `AppCheckManager` used a 5s timeout — the same value the shell uses for its own reply — so a
+  slow first load could race and make the SDK give up just before the shell answered. A single
+  timeout also disabled App Check permanently for the session. The timeout is now 8s, and App
+  Check is only written off after two consecutive silences; any reply (even a null token) resets
+  the counter.
+- Bridge handlers in `TokenManager`, `AppCheckManager`, `AuthModule`, `ApiModule` and
+  `PurchasesModule` unsubscribe before subscribing. A retried init previously left the old module
+  attached to `WebGLBridge.OnMessageReceived` for the life of the page, which could call
+  `SetResult` twice on the same `TaskCompletionSource`.
+
+Changed:
+
+- Version promoted from `1.3.0-pre.1` to `1.3.0`
+
+## [1.3.0-pre.1] - 2026-08-07
+
+Added:
+
+- `SusaPlaySDK.LiveOps.RefreshAsync()` for cached public-manifest delivery
+- Explicit models for missions, single offers, chained offers, and boosted IAP offers
+- Persistent 15-minute cache with offline fallback and origin cache-busting support
+- `SDKConfig.LiveOpsContentBaseUrl` and setup-wizard configuration
+
+Changed:
+
+- SDK prerelease version bumped to `1.3.0-pre.1`
+
 ## [1.2.3] - 2026-07-21
 
 Added:

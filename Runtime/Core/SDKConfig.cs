@@ -9,6 +9,7 @@ namespace susaplay.SDK
         [SerializeField] private string _gameKey;
         [SerializeField] private bool _isEmulatorMode;
         [SerializeField] private string _liveUrlOverride;
+        [SerializeField] private string _liveOpsContentBaseUrl;
         [SerializeField] private bool _automaticAnalyticsFlushEnabled = true;
         [SerializeField] private float _analyticsFlushIntervalSeconds = 300f;
         [SerializeField] private bool _flushAnalyticsOnInitialize = true;
@@ -20,6 +21,9 @@ namespace susaplay.SDK
         public bool FlushAnalyticsOnInitialize => _flushAnalyticsOnInitialize;
         public bool FlushAnalyticsOnPause => _flushAnalyticsOnPause;
         public bool FlushAnalyticsOnQuit => _flushAnalyticsOnQuit;
+        public string LiveOpsContentBaseUrl => string.IsNullOrWhiteSpace(_liveOpsContentBaseUrl)
+            ? string.Empty
+            : _liveOpsContentBaseUrl.TrimEnd('/');
 
         public string ApiBaseUrl
         {
@@ -40,6 +44,11 @@ namespace susaplay.SDK
         public void SetGameKey(string key)
         {
             _gameKey = key;
+        }
+
+        public void SetLiveOpsContentBaseUrl(string url)
+        {
+            _liveOpsContentBaseUrl = string.IsNullOrWhiteSpace(url) ? string.Empty : url.TrimEnd('/');
         }
 
         public void SetAutomaticAnalyticsFlushEnabled(bool enabled)

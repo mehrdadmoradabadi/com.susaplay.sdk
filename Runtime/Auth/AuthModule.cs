@@ -13,6 +13,9 @@ namespace susaplay.SDK
         public void Initialize(PlayerData playerData)
         {
             _playerData = playerData;
+            // Unsubscribe first — a retried SDK init constructs a new module, and the old one
+            // would otherwise stay subscribed to the bridge for the life of the page.
+            WebGLBridge.OnMessageReceived -= HandleMessage;
             WebGLBridge.OnMessageReceived += HandleMessage;
         }
         private void HandleMessage(string json)
