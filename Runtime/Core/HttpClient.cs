@@ -35,7 +35,7 @@ namespace susaplay.SDK
             }
             else
             {
-                return HttpResponse.Fail(request.error, request.responseCode);
+                return HttpResponse.Fail(DescribeError(request), request.responseCode);
             }
         }
 
@@ -53,8 +53,27 @@ namespace susaplay.SDK
             }
             else
             {
-                return HttpResponse.Fail(request.error, request.responseCode);
+                return HttpResponse.Fail(DescribeError(request), request.responseCode);
             }
+        }
+
+        /// <summary>Combines the transport error with the response body. On an HTTP error
+        /// UnityWebRequest.error is only "HTTP/1.1 409 Conflict", which hides the backend's
+        /// error code (VERSION_CONFLICT and friends) and makes save failures unreadable in logs.
+        /// </summary>
+        private static string DescribeError(UnityWebRequest request)
+        {
+            var body = request.downloadHandler != null ? request.downloadHandler.text : null;
+            if (string.IsNullOrEmpty(body))
+            {
+                return request.error;
+            }
+            const int maxBodyChars = 512;
+            if (body.Length > maxBodyChars)
+            {
+                body = body.Substring(0, maxBodyChars) + "…";
+            }
+            return request.error + " — " + body;
         }
 
         private async Task AttachAppCheckHeader(UnityWebRequest request)
