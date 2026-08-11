@@ -194,6 +194,7 @@ namespace susaplay.SDK
                 return new XsollaPurchaseResult
                 {
                     Success = false,
+                    RequestId = requestId,
                     Status = "timeout",
                     ErrorCode = "TIMEOUT",
                     ErrorMessage = "Xsolla purchase request timed out."
@@ -232,6 +233,7 @@ namespace susaplay.SDK
             tcs.SetResult(new XsollaPurchaseResult
             {
                 Success = payload.success,
+                RequestId = payload.requestId,
                 Status = payload.status,
                 Wallet = payload.wallet,
                 PlatformWallet = payload.platformWallet,
@@ -245,6 +247,9 @@ namespace susaplay.SDK
     public class XsollaPurchaseResult
     {
         public bool Success;
+        /// <summary>Correlation id the shell echoes back. Useful for analytics and for matching
+        /// a completed purchase to the request that started it.</summary>
+        public string RequestId;
         public string Status;
         public XsollaWalletSnapshot Wallet;
         public PlatformWalletSnapshot PlatformWallet;
@@ -259,6 +264,9 @@ namespace susaplay.SDK
         public float coins;
         public float gems;
         public int version;
+        // Mirrors WalletSummary.lastModified in the shell's xsollaService — the shell already
+        // sends it, this class just was not reading it.
+        public string lastModified;
     }
 
     [Serializable]
@@ -268,6 +276,7 @@ namespace susaplay.SDK
         public float coins;
         public float gems;
         public int version;
+        public string lastModified;
     }
 
     [Serializable]
