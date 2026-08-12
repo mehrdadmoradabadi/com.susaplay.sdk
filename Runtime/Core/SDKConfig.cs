@@ -15,7 +15,9 @@ namespace susaplay.SDK
         [SerializeField] private bool _flushAnalyticsOnInitialize = true;
         [SerializeField] private bool _flushAnalyticsOnPause = true;
         [SerializeField] private bool _flushAnalyticsOnQuit = true;
-        public string GameKey => _gameKey;
+        // Trimmed: the key is pasted into the inspector field, and a trailing space would be
+        // sent verbatim in SDK_INIT and fail player-init with GAME_NOT_FOUND.
+        public string GameKey => string.IsNullOrWhiteSpace(_gameKey) ? string.Empty : _gameKey.Trim();
         public bool AutomaticAnalyticsFlushEnabled => _automaticAnalyticsFlushEnabled;
         public float AnalyticsFlushIntervalSeconds => Mathf.Max(MinimumAnalyticsFlushIntervalSeconds, _analyticsFlushIntervalSeconds);
         public bool FlushAnalyticsOnInitialize => _flushAnalyticsOnInitialize;
