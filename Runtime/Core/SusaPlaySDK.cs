@@ -24,8 +24,15 @@ namespace susaplay.SDK
         public static PurchasesModule Purchases => _purchases;
         private static ApiModule _api;
         public static ApiModule Api => _api;
+        private static BackendModule _backend;
+
+        /// <summary>Authenticated calls to the platform's own API. See <see cref="BackendModule"/>.</summary>
+        public static BackendModule Backend => _backend;
         private static LiveOpsModule _liveOps;
         public static LiveOpsModule LiveOps => _liveOps;
+        /// <summary>Canonical platform game id for this build. Empty until initialization completes.</summary>
+        public static string GameId { get; private set; } = "";
+
         private const string SdkVersion = "1.3.0";
         private const int InitTimeoutMs = 15000;
         private static bool _isInitialized;
@@ -150,7 +157,13 @@ namespace susaplay.SDK
             _purchases = new PurchasesModule(_httpClient, playerData.gameId);
             _purchases.Initialize();
             _api = new ApiModule();
+            _backend = new BackendModule(_httpClient);
             _liveOps = new LiveOpsModule(_config.LiveOpsContentBaseUrl, playerData.gameId);
+
+            // Surfaced so a game can attribute its own platform calls without hardcoding an id.
+            // This is the canonical id the platform sent with SDK_READY, not a value the build
+            // guessed, which is why it is worth exposing rather than letting each game invent one.
+            GameId = playerData.gameId;
             if (_config.AutomaticAnalyticsFlushEnabled)
             {
                 var flusherGO = new GameObject("SusaPlayAnalyticsFlusher");
