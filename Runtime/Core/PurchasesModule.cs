@@ -26,16 +26,24 @@ namespace susaplay.SDK
             WebGLBridge.OnMessageReceived += HandleMessage;
         }
 
+        /// <param name="sandbox">
+        /// Requests the developer test lane. The server decides: the request is
+        /// granted only for a SusaPlay admin, or a developer on a game they own.
+        /// For every other caller the purchase is live regardless of this flag.
+        /// Sandbox balances live in a separate wallet and never mix with real ones.
+        /// </param>
         public Task<XsollaPurchaseResult> StartXsollaPurchase(bool sandbox = false)
         {
             return StartDirectItemPurchase(null, sandbox);
         }
 
+        /// <param name="sandbox">See <see cref="StartXsollaPurchase"/> — a request, not a decision.</param>
         public Task<XsollaPurchaseResult> StartDirectItemPurchase(string itemId, bool sandbox = false)
         {
             return StartXsollaPurchaseInternal("direct_item", itemId, null, sandbox);
         }
 
+        /// <param name="sandbox">See <see cref="StartXsollaPurchase"/> — a request, not a decision.</param>
         public Task<XsollaPurchaseResult> StartWalletTopupPurchase(string topupPackId, bool sandbox = false)
         {
             if (string.IsNullOrEmpty(topupPackId))
@@ -127,7 +135,76 @@ namespace susaplay.SDK
             };
         }
 
-        public async Task<PlatformWalletSpendResult> SpendPlatformWallet(string itemId)
+        /// <param name="requestId">
+        /// Optional idempotency key. Supply a value that is stable across retries
+        /// of the same intended purchase (a GUID generated once per attempt) and a
+        /// retried call returns the original result instead of debiting again.
+        /// Omit it and a retry is treated as a second purchase.
+        /// </param>
+        /// <summary>Read what the player owns in this game.</summary>
+        public async Task<InventoryResult> GetInventory()
+        {
+            var response = await _httpClient.Get($"/economy/inventory?gameId={Uri.EscapeDataString(_gameId ?? string.Empty)}");
+            if (!response.Success)
+            {
+                return InventoryResult.Fail(response.Error);
+            }
+
+            var envelope = JsonUtility.FromJson<InventoryEnvelope>(response.Data);
+            if (envelope == null || !envelope.success || envelope.data == null)
+            {
+                return InventoryResult.Fail("Malformed inventory response");
+            }
+
+            return new InventoryResult
+            {
+                Success = true,
+                Items = envelope.data.itemsList ?? Array.Empty<StringIntEntry>(),
+                Consumables = envelope.data.consumablesList ?? Array.Empty<StringIntEntry>(),
+            };
+        }
+
+        /// <summary>
+        /// Use up a consumable the player owns. Moves no currency — the coins were
+        /// spent when the item was bought.
+        /// </summary>
+        /// <param name="requestId">Optional idempotency key; see <see cref="SpendPlatformWallet"/>.</param>
+        public async Task<ConsumeResult> ConsumeItem(string itemId, int quantity = 1, string requestId = null)
+        {
+            if (string.IsNullOrEmpty(itemId))
+            {
+                return ConsumeResult.Fail("itemId is required.");
+            }
+
+            var body = JsonUtility.ToJson(new ConsumeRequest
+            {
+                gameId = _gameId,
+                itemId = itemId,
+                quantity = quantity < 1 ? 1 : quantity,
+                requestId = requestId,
+            });
+            var response = await _httpClient.Post("/economy/consume", body);
+            if (!response.Success)
+            {
+                return ConsumeResult.Fail(response.Error);
+            }
+
+            var envelope = JsonUtility.FromJson<ConsumeEnvelope>(response.Data);
+            if (envelope == null || !envelope.success || envelope.data == null)
+            {
+                return ConsumeResult.Fail("Malformed consume response");
+            }
+
+            return new ConsumeResult
+            {
+                Success = true,
+                ItemId = envelope.data.itemId,
+                Remaining = envelope.data.remaining,
+                Consumables = envelope.data.consumablesList ?? Array.Empty<StringIntEntry>(),
+            };
+        }
+
+        public async Task<PlatformWalletSpendResult> SpendPlatformWallet(string itemId, string requestId = null)
         {
             if (string.IsNullOrEmpty(itemId))
             {
@@ -138,6 +215,7 @@ namespace susaplay.SDK
             {
                 gameId = _gameId,
                 itemId = itemId,
+                requestId = requestId,
             });
             var response = await _httpClient.Post("/economy/platform-wallet/spend", body);
             if (!response.Success)
@@ -273,6 +351,8 @@ namespace susaplay.SDK
     public class PlatformWalletSnapshot
     {
         public string walletId;
+        /// <summary>"live" or "sandbox" — which wallet this balance came from.</summary>
+        public string walletScope;
         public float coins;
         public float gems;
         public int version;
@@ -336,6 +416,46 @@ namespace susaplay.SDK
     }
 
     [Serializable]
+    [Serializable]
+    public class InventoryResult
+    {
+        public bool Success;
+        public StringIntEntry[] Items;
+        public StringIntEntry[] Consumables;
+        public string Error;
+
+        public static InventoryResult Fail(string error)
+        {
+            return new InventoryResult
+            {
+                Success = false,
+                Items = Array.Empty<StringIntEntry>(),
+                Consumables = Array.Empty<StringIntEntry>(),
+                Error = error,
+            };
+        }
+    }
+
+    [Serializable]
+    public class ConsumeResult
+    {
+        public bool Success;
+        public string ItemId;
+        public int Remaining;
+        public StringIntEntry[] Consumables;
+        public string Error;
+
+        public static ConsumeResult Fail(string error)
+        {
+            return new ConsumeResult
+            {
+                Success = false,
+                Consumables = Array.Empty<StringIntEntry>(),
+                Error = error,
+            };
+        }
+    }
+
     public class PlatformWalletSpendResult
     {
         public bool Success;
@@ -478,6 +598,46 @@ namespace susaplay.SDK
     {
         public string gameId;
         public string itemId;
+        public string requestId;
+    }
+
+    [Serializable]
+    class ConsumeRequest
+    {
+        public string gameId;
+        public string itemId;
+        public int quantity;
+        public string requestId;
+    }
+
+    [Serializable]
+    class ConsumeEnvelope
+    {
+        public bool success;
+        public ConsumePayload data;
+    }
+
+    [Serializable]
+    class ConsumePayload
+    {
+        public string itemId;
+        public int remaining;
+        public StringIntEntry[] consumablesList;
+    }
+
+    [Serializable]
+    class InventoryEnvelope
+    {
+        public bool success;
+        public InventoryPayload data;
+    }
+
+    [Serializable]
+    class InventoryPayload
+    {
+        public string gameId;
+        public StringIntEntry[] itemsList;
+        public StringIntEntry[] consumablesList;
     }
 
     [Serializable]

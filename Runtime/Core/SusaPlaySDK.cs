@@ -15,6 +15,8 @@ namespace susaplay.SDK
         public static AuthModule Auth => _auth;
         private static CloudSaveModule _cloudSave;
         public static CloudSaveModule CloudSave => _cloudSave;
+        private static AchievementsModule _achievements;
+        public static AchievementsModule Achievements => _achievements;
         private static AnalyticsModule _analytics;
         private static AnalyticsFlusher _flusher;
         public static AnalyticsModule Analytics => _analytics;
@@ -147,6 +149,7 @@ namespace susaplay.SDK
             _auth = new AuthModule();
             _auth.Initialize(playerData);
             _cloudSave = new CloudSaveModule(_httpClient, playerData.gameId);
+            _achievements = new AchievementsModule(_httpClient, playerData.gameId);
             _analytics = new AnalyticsModule(_httpClient, playerData.gameId, playerData.sessionId);
             // Emit session_start automatically. Nothing else in the SDK queues an event, so
             // without this a game that never calls LogEvent produces no analytics at all and
