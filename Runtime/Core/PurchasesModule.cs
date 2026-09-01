@@ -416,7 +416,6 @@ namespace susaplay.SDK
     }
 
     [Serializable]
-    [Serializable]
     public class InventoryResult
     {
         public bool Success;

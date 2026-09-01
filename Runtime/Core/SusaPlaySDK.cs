@@ -35,7 +35,7 @@ namespace susaplay.SDK
         /// <summary>Canonical platform game id for this build. Empty until initialization completes.</summary>
         public static string GameId { get; private set; } = "";
 
-        private const string SdkVersion = "1.4.0";
+        private const string SdkVersion = "1.4.1";
         private const int InitTimeoutMs = 15000;
         private static bool _isInitialized;
         private static bool _didSendGameLoaded;
